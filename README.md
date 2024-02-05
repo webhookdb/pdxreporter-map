@@ -4,6 +4,8 @@ Map for PDX Reporter using WebhookDB.
 
 This code was build for the tutorial at <https://docs.webhookdb.com/guides/render-map/>.
 
+<img src="pdxreporter-map.jpg" style="width: calc(100% - 1rem); max-width: 400px; margin-top: 1rem; margin-left: 0.5rem; margin-right: 0.5rem; margin-bottom: 1rem; height: auto;">
+
 ## Demo
 
 Check out <https://webhookdb.github.io/pdxreporter-map>.
