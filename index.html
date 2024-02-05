@@ -10,14 +10,14 @@
 body { margin: 0; padding: 0; }
 #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 .marker {
-    font-size: 18px;
-    background-color: white;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 50%);
     border-radius: 50%;
     padding: 2px;
-    border: black 2px solid;
+    border: rgba(0, 0, 0, 30%) 1px solid;
 }
 .marker-campsite {
-    font-size: 12px;
+    font-size: 10px;
     opacity: 50% !important;
 }
 .mapboxgl-popup-content {
@@ -62,7 +62,7 @@ body { margin: 0; padding: 0; }
             body.headers.forEach((h, i) => {
                 rowObj[h] = row[i];
             });
-            const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment}</p><p>At: ${rowObj.published}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
+            const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
             const popup = new mapboxgl.Popup({ offset: 12 }).setHTML(popupHtml)
             const el = document.createElement('div');
             el.classList.add(categoryClass[rowObj.category] || 'marker');
