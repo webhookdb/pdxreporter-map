@@ -245,7 +245,7 @@
         LIMIT 1000`;
     let body = cache[query];
     if (!body) {
-      const resp = await fetch(`https://api.webhookdb.com/v1/db/${orgKey}/sql`,
+      const resp = await fetch(`https://api.webhookdb.com/v1/db/run_sql`,
         {
           method: 'POST',
           headers: {
@@ -253,7 +253,7 @@
             'Content-Type': 'application/json',
             'Whdb-Sha256-Conn': webhookdbAuthHeader,
           },
-          body: JSON.stringify({query})
+          body: JSON.stringify({query, org_identifier: orgKey})
         });
       body = await resp.json();
       cache[query] = body;
