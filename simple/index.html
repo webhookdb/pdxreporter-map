@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PDX Reporter Map | BikeLoud PDX</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+<style>
+body { margin: 0; padding: 0; }
+#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+.marker {
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 50%);
+    border-radius: 50%;
+    padding: 2px;
+    border: rgba(0, 0, 0, 30%) 1px solid;
+}
+.marker-campsite {
+    font-size: 10px;
+    opacity: 50% !important;
+}
+.mapboxgl-popup-content {
+    border-radius: 6px;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	mapboxgl.accessToken = 'pk.eyJ1Ijoicm9ibGl0aGljIiwiYSI6ImNsczg3ajY1dzF5bnkya24yeWp5ZHl6ajEifQ.k-7Aez1RUjOQEL1kEQDF1Q';
+    const map = new mapboxgl.Map({
+        container: 'map', // container ID
+        center: [-122.676483, 45.523064], // starting position [lng, lat]
+        zoom: 12 // starting zoom
+    });
+    (async function() {
+        const categoryEmoji = {
+            'Park Maintenance': '🌲',
+            'Street Cleaning (Days)': '🧹',
+            'Debris in Roadway': '🗑️',
+            'Street Lighting': '💡',
+            'Work Zone Concerns': '👷‍♂️',
+            'Potholes': '🕳️',
+            'Plugged Storm Drain/Inlet': '🌊',
+            'Sidewalk Vegetation': '✂️',
+            'Illegal Parking': '🚗',
+            'Sewer Cleaning': '💩',
+            'Campsite Reporting': '⛺️',
+        }
+        const categoryClass = {
+          'Campsite Reporting': 'marker-campsite',
+        }
+        // See https://docs.webhookdb.com/guides/render-map/ to get your own URL for your own feed or database
+        const webhookdbSavedQueryUrl = 'https://api.webhookdb.com/v1/saved_queries/svq_23en3z2idq56ktlc2ivb4x6ri/run'
+        const resp = await fetch(webhookdbSavedQueryUrl);
+        const body = await resp.json();
+        body.rows.forEach((row) => {
+            // Will give an object with keys like: title, published, geo_lat, geo_lng, status, address, comment
+            // If the query changes the selected column names, we need to change this.
+            const rowObj = {};
+            body.headers.forEach((h, i) => {
+                rowObj[h] = row[i];
+            });
+            const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
+            const popup = new mapboxgl.Popup({ offset: 12 }).setHTML(popupHtml)
+            const el = document.createElement('div');
+            el.classList.add(categoryClass[rowObj.category] || 'marker');
+            el.innerHTML = `${categoryEmoji[rowObj.category] || '❓'}`;
+            new mapboxgl.Marker(el)
+                .setLngLat([rowObj.geo_lng, rowObj.geo_lat])
+                .setPopup(popup)
+                .addTo(map);
+        })
+    })()
+</script>
+</body>
+</html>
