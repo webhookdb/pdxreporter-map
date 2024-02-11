@@ -1,78 +1,312 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-US">
 <head>
-<meta charset="utf-8">
-<title>PDX Reporter Map | BikeLoud PDX</title>
-<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
-<style>
-body { margin: 0; padding: 0; }
-#map { position: absolute; top: 0; bottom: 0; width: 100%; }
-.marker {
-    font-size: 14px;
-    background-color: rgba(255, 255, 255, 50%);
-    border-radius: 50%;
-    padding: 2px;
-    border: rgba(0, 0, 0, 30%) 1px solid;
-}
-.marker-campsite {
-    font-size: 10px;
-    opacity: 50% !important;
-}
-.mapboxgl-popup-content {
-    border-radius: 6px;
-}
-</style>
+    <meta charset="utf-8">
+    <title>PDX Reporter Map | BikeLoud PDX</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/pelinoleg/CSSformalize@master/css/css-formalize.min.css">
+    <style>
+        /* See https://www.cssformalize.com/generate.html */
+        :root {
+            --cform-text-color: rgba(0, 0, 0, 1);
+            --cform-accent: rgba(0, 0, 0, 1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font: 12px/20px Helvetica Neue, Arial, Helvetica, sans-serif;
+        }
+
+        .root {
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            /*background: linear-gradient(#e66465, #9198e5);*/
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        .marker {
+            font-size: 14px;
+            background-color: rgba(255, 255, 255, 50%);
+            border-radius: 50%;
+            padding: 2px;
+            border: rgba(0, 0, 0, 30%) 1px solid;
+            cursor: pointer;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        .marker-campsite {
+            font-size: 10px;
+            opacity: 50% !important;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        .mapboxgl-popup-content {
+            border-radius: 6px;
+        }
+
+        .chrome {
+            position: fixed;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        #progress-bar {
+            width: 100%;
+            accent-color: var(--cform-text-color);
+            transform: translateY(-10px) scaleY(120%);
+        }
+
+        .d-none {
+            display: none;
+        }
+
+        .pagehead {
+            margin: 0;
+        }
+
+        .subhead {
+            margin: 12px 0 0;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            padding: 16px 12px 16px;
+            background-color: white;
+        }
+
+        .row {
+            display: flex;
+            flex-direction: row;
+            gap: 16px;
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .controls {
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        label, .label {
+            font-size: 16px;
+        }
+
+        input[type=radio] {
+            margin-right: 8px !important;
+        }
+    </style>
 </head>
 <body>
-<div id="map"></div>
+<div class="root">
+    <div class="chrome">
+        <div class="nav">
+            <div class="col">
+                <h1 class="pagehead">PDX Reporter Map</h1>
+                <p class="subhead">
+                    Supported by <a href="https://bikeloudpdx.org">BikeLoudPDX</a>.
+                    File reports at <a href="https://pdxreporter.org/#Login">pdxreporter.org</a>.
+                    See <a href="https://github.com/webhookdb/pdxreporter-map">github.com/webhookdb/pdxreporter-map</a>
+                    for source code.
+                </p>
+            </div>
+            <div class="row controls">
+                <div class="label">Time period:</div>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="time"
+                    value="30"
+                    onchange="handleInputChange();"/>30 Days</label>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="time"
+                    value="90"
+                    checked
+                    onchange="handleInputChange();"/>90 Days</label>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="time"
+                    value="180"
+                    onchange="handleInputChange();"/>180 Days</label>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="time"
+                    value="365"
+                    onchange="handleInputChange();"/>Last Year</label>
+            </div>
+            <div class="row controls">
+                <div class="label">Status:</div>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="status"
+                    value="unclosed"
+                    checked
+                    onchange="handleInputChange();"/>Hide Closed</label>
+                <label><input
+                    class="cform cform-custom-checkbox-radio"
+                    type="radio"
+                    name="status"
+                    value="all"
+                    onchange="handleInputChange();"
+                />All</label>
+            </div>
+            <div id="stats" class="row controls">Loading...</div>
+        </div>
+        <progress id="progress-bar" class="d-none"></progress>
+    </div>
+    <div id="map"></div>
+</div>
 <script>
-	mapboxgl.accessToken = 'pk.eyJ1Ijoicm9ibGl0aGljIiwiYSI6ImNsczg3ajY1dzF5bnkya24yeWp5ZHl6ajEifQ.k-7Aez1RUjOQEL1kEQDF1Q';
-    const map = new mapboxgl.Map({
-        container: 'map', // container ID
-        center: [-122.676483, 45.523064], // starting position [lng, lat]
-        zoom: 12 // starting zoom
+  // See https://docs.webhookdb.com/guides/render-map/ to create your own organization for your own data.
+  // NOTE: This is a live token over live data that can be used to access certain API endpoints.
+  // It is created using something like:
+  //     Digest::SHA256.hexdigest('postgres://dbuser:dbpass@bikeloudpdx.db.webhookdb.com:5432/adb123')
+  //
+  // (you can get the connection string using `webhookdb db conn` using the CLI)
+  // Then set to the `Whdb-Sha256-Conn` header, as in `fetch` below.
+  //
+  // This connection string is readonly (created by WebhookDB) and you can use it to run any database query you like;
+  // that is, we don't worry about SQL injection, because the connection string is locked down,
+  // someone can just use the /sql query endpoint directly.
+  const webhookdbAuthHeader = '4177df9d8944d9054d56b3c0dd9d69afdd948789ff9a10831c3269015f1f80f8';
+  const orgKey = 'bikeloudpdx';
+  const categoryEmoji = {
+    'Park Maintenance': '🌲',
+    'Street Cleaning (Days)': '🧹',
+    'Debris in Roadway': '🗑️',
+    'Street Lighting': '💡',
+    'Work Zone Concerns': '👷‍♂️',
+    'Potholes': '🕳️',
+    'Plugged Storm Drain/Inlet': '🌊',
+    'Sidewalk Vegetation': '✂️',
+    'Illegal Parking': '🚗',
+    'Sewer Cleaning': '💩',
+    'Campsite Reporting': '⛺️',
+  }
+  const categoryClass = {
+    'Campsite Reporting': 'marker-campsite',
+  };
+  mapboxgl.accessToken = 'pk.eyJ1Ijoicm9ibGl0aGljIiwiYSI6ImNsczg3ajY1dzF5bnkya24yeWp5ZHl6ajEifQ.k-7Aez1RUjOQEL1kEQDF1Q';
+  const map = new mapboxgl.Map({
+    container: 'map', // container ID
+    center: [-122.676483, 45.523064], // starting position [lng, lat]
+    zoom: 12 // starting zoom
+  });
+
+  // function inCond(arr) {
+  //   if (!arr || arr.length === 0) {
+  //     return "= NULL"
+  //   }
+  //   return 'IN (' + arr.map((x) => `'${x}'`).join(', ') + ')'
+  // }
+
+  let lastQueryAborter = new AbortController();
+
+  async function runQuery({sinceDays, statuses}) {
+    lastQueryAborter.abort();
+    const thisAborter = new AbortController();
+    lastQueryAborter = thisAborter;
+    document.querySelector('#progress-bar').classList.remove('d-none');
+    const sinceCond = `published > now() - '${sinceDays} days'::interval`;
+    const statusCond = statuses === 'all' ? '1 = 1' : "status != 'Closed'"
+    // As explained above, we do not worry on sql injection here- someone can just make calls to /sql using the
+    // hard-coded auth token. We depend on the connection string from WebhookDB being readonly,
+    // and not having any sensitive data in the database.
+    const query = `
+        SELECT title,
+               published_str,
+               geo_lat,
+               geo_lng,
+               status,
+               category,
+               entry_id,
+               address,
+               comment
+        FROM pdxreporterrss_view
+        WHERE ${sinceCond}
+          AND ${statusCond}
+        ORDER BY published DESC
+        LIMIT 1000`;
+    let body = cache[query];
+    if (!body) {
+      const resp = await fetch(`https://api.webhookdb.com/v1/db/${orgKey}/sql`,
+        {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Whdb-Sha256-Conn': webhookdbAuthHeader,
+          },
+          body: JSON.stringify({query})
+        });
+      body = await resp.json();
+      cache[query] = body;
+    }
+    if (thisAborter.signal.aborted) {
+      return;
+    }
+    currentMarkers.forEach((m) => m.remove());
+    let earliestRow = null;
+    body.rows.forEach((row) => {
+      // Will give an object with keys like: title, published, geo_lat, geo_lng, status, address, comment
+      // If the query changes the selected column names, we need to change this.
+      const rowObj = {};
+      body.headers.forEach((h, i) => {
+        rowObj[h] = row[i];
+      });
+      const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published_str}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
+      const popup = new mapboxgl.Popup({offset: 12}).setHTML(popupHtml)
+      const el = document.createElement('div');
+      el.classList.add(categoryClass[rowObj.category] || 'marker');
+      el.innerHTML = `${categoryEmoji[rowObj.category] || '❓'}`;
+      currentMarkers.push(
+        new mapboxgl.Marker(el)
+          .setLngLat([rowObj.geo_lng, rowObj.geo_lat])
+          .setPopup(popup)
+          .addTo(map)
+      );
+      earliestRow = rowObj;
     });
-    (async function() {
-        const categoryEmoji = {
-            'Park Maintenance': '🌲',
-            'Street Cleaning (Days)': '🧹',
-            'Debris in Roadway': '🗑️',
-            'Street Lighting': '💡',
-            'Work Zone Concerns': '👷‍♂️',
-            'Potholes': '🕳️',
-            'Plugged Storm Drain/Inlet': '🌊',
-            'Sidewalk Vegetation': '✂️',
-            'Illegal Parking': '🚗',
-            'Sewer Cleaning': '💩',
-            'Campsite Reporting': '⛺️',
-        }
-        const categoryClass = {
-          'Campsite Reporting': 'marker-campsite',
-        }
-        // See https://docs.webhookdb.com/guides/render-map/ to get your own URL for your own feed or database
-        const webhookdbSavedQueryUrl = 'https://api.webhookdb.com/v1/saved_queries/svq_23en3z2idq56ktlc2ivb4x6ri/run'
-        const resp = await fetch(webhookdbSavedQueryUrl);
-        const body = await resp.json();
-        body.rows.forEach((row) => {
-            // Will give an object with keys like: title, published, geo_lat, geo_lng, status, address, comment
-            // If the query changes the selected column names, we need to change this.
-            const rowObj = {};
-            body.headers.forEach((h, i) => {
-                rowObj[h] = row[i];
-            });
-            const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
-            const popup = new mapboxgl.Popup({ offset: 12 }).setHTML(popupHtml)
-            const el = document.createElement('div');
-            el.classList.add(categoryClass[rowObj.category] || 'marker');
-            el.innerHTML = `${categoryEmoji[rowObj.category] || '❓'}`;
-            new mapboxgl.Marker(el)
-                .setLngLat([rowObj.geo_lng, rowObj.geo_lat])
-                .setPopup(popup)
-                .addTo(map);
-        })
-    })()
+    document.querySelector('#progress-bar').classList.add('d-none');
+    let stats;
+    if (earliestRow) {
+      stats = `Showing last ${body.rows.length} reports, earliest at ${earliestRow.published_str}.`
+    } else {
+      stats = "No events match that query."
+    }
+    document.querySelector("#stats").innerHTML = stats;
+  }
+
+  const cache = [];
+  const currentMarkers = [];
+
+  function getQueryState() {
+    const sinceDays = document.querySelector('input[name="time"]:checked').value;
+    const statuses = document.querySelector('input[name="status"]:checked').value;
+    return {sinceDays, statuses};
+  }
+
+  function handleInputChange() {
+    runQuery(getQueryState());
+  }
+
+  runQuery(getQueryState())
 </script>
 </body>
 </html>
