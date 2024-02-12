@@ -94,6 +94,10 @@
             flex-direction: column;
         }
 
+        .align-middle {
+            align-items: center;
+        }
+
         .controls {
             gap: 16px;
             margin-top: 16px;
@@ -121,33 +125,13 @@
                     for source code.
                 </p>
             </div>
-            <div class="row controls">
+            <div class="row controls align-middle">
                 <div class="label">Time period:</div>
-                <label><input
-                    class="cform cform-custom-checkbox-radio"
-                    type="radio"
-                    name="time"
-                    value="30"
-                    onchange="handleInputChange();"/>30 Days</label>
-                <label><input
-                    class="cform cform-custom-checkbox-radio"
-                    type="radio"
-                    name="time"
-                    value="90"
-                    checked
-                    onchange="handleInputChange();"/>90 Days</label>
-                <label><input
-                    class="cform cform-custom-checkbox-radio"
-                    type="radio"
-                    name="time"
-                    value="180"
-                    onchange="handleInputChange();"/>180 Days</label>
-                <label><input
-                    class="cform cform-custom-checkbox-radio"
-                    type="radio"
-                    name="time"
-                    value="365"
-                    onchange="handleInputChange();"/>Last Year</label>
+                <input type="date" id="lower" name="lower" class="cform cform-custom-input" aria-label="start date"
+                       onchange="handleInputChange();"/>
+                <div class="label">to</div>
+                <input type="date" id="upper" name="upper" class="cform cform-custom-input" aria-label="end date"
+                       onchange="handleInputChange();"/>
             </div>
             <div class="row controls">
                 <div class="label">Status:</div>
@@ -172,6 +156,35 @@
     </div>
     <div id="map"></div>
 </div>
+<script>
+  (function () {
+    const today = new Date();
+    const dayInMillis = 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setTime(today.getTime() - (dayInMillis * 30));
+
+    function pad(s) {
+      s = '' + s;
+      return s.length === 1 ? `0${s}` : s;
+    }
+
+    function dateToDateInputStr(d) {
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    }
+
+    const lower = document.querySelector("#lower");
+    const upper = document.querySelector('#upper');
+    lower.min = upper.min = '2023-06-01';
+    lower.max = upper.max = dateToDateInputStr(today);
+    // The browser may have persisted these values
+    if (!lower.value) {
+      lower.value = dateToDateInputStr(thirtyDaysAgo);
+    }
+    if (!upper.value) {
+      upper.value = dateToDateInputStr(today);
+    }
+  })()
+</script>
 <script>
   // See https://docs.webhookdb.com/guides/render-map/ to create your own organization for your own data.
   // NOTE: This is a live token over live data that can be used to access certain API endpoints.
@@ -211,21 +224,17 @@
   map.addControl(new mapboxgl.NavigationControl({showCompass: false}), 'bottom-right');
   map.addControl(new mapboxgl.GeolocateControl(), 'bottom-right');
 
-  // function inCond(arr) {
-  //   if (!arr || arr.length === 0) {
-  //     return "= NULL"
-  //   }
-  //   return 'IN (' + arr.map((x) => `'${x}'`).join(', ') + ')'
-  // }
-
   let lastQueryAborter = new AbortController();
 
-  async function runQuery({sinceDays, statuses}) {
+  async function runQuery({lower, upper, statuses}) {
+    if (!(lower && upper && statuses)) {
+      console.log('some params were empty')
+      return;
+    }
     lastQueryAborter.abort();
     const thisAborter = new AbortController();
     lastQueryAborter = thisAborter;
     document.querySelector('#progress-bar').classList.remove('d-none');
-    const sinceCond = `published > now() - '${sinceDays} days'::interval`;
     const statusCond = statuses === 'all' ? '1 = 1' : "status != 'Closed'"
     // As explained above, we do not worry on sql injection here- someone can just make calls to /sql using the
     // hard-coded auth token. We depend on the connection string from WebhookDB being readonly,
@@ -241,25 +250,22 @@
                address,
                comment
         FROM pdxreporterrss_view
-        WHERE ${sinceCond}
-          AND ${statusCond}
+        WHERE ${statusCond}
+          AND published <= '${upper}'::date
+          AND published > '${lower}'::date
         ORDER BY published DESC
-        LIMIT 1000`;
-    let body = cache[query];
-    if (!body) {
-      const resp = await fetch(`https://api.webhookdb.com/v1/db/run_sql`,
-        {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Whdb-Sha256-Conn': webhookdbAuthHeader,
-          },
-          body: JSON.stringify({query, org_identifier: orgKey})
-        });
-      body = await resp.json();
-      cache[query] = body;
-    }
+        LIMIT 5000`;
+    const resp = await fetch(
+      `https://api.webhookdb.com/v1/db/run_sql?` +
+      new URLSearchParams({query_base64: btoa(query), org_identifier: orgKey}),
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Whdb-Sha256-Conn': webhookdbAuthHeader,
+        },
+      });
+    const body = await resp.json();
     if (thisAborter.signal.aborted) {
       return;
     }
@@ -295,13 +301,13 @@
     document.querySelector("#stats").innerHTML = stats;
   }
 
-  const cache = [];
   const currentMarkers = [];
 
   function getQueryState() {
-    const sinceDays = document.querySelector('input[name="time"]:checked').value;
+    const lower = document.querySelector('#lower').value;
+    const upper = document.querySelector('#upper').value;
     const statuses = document.querySelector('input[name="status"]:checked').value;
-    return {sinceDays, statuses};
+    return {lower, upper, statuses};
   }
 
   function handleInputChange() {
