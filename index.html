@@ -251,7 +251,7 @@
                comment
         FROM pdxreporterrss_view
         WHERE ${statusCond}
-          AND published <= '${upper}'::date
+          AND published < ('${upper}'::date + '1 day'::interval)
           AND published > '${lower}'::date
         ORDER BY published DESC
         LIMIT 5000`;
