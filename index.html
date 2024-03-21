@@ -111,6 +111,21 @@
             margin-right: 8px !important;
         }
     </style>
+    <script>
+      const categoryEmoji = {
+        'Park Maintenance': '🌲',
+        'Street Cleaning (Days)': '🧹',
+        'Debris in Roadway': '🗑️',
+        'Street Lighting': '💡',
+        'Work Zone Concerns': '👷‍♂️',
+        'Potholes': '🕳️',
+        'Plugged Storm Drain/Inlet': '🌊',
+        'Sidewalk Vegetation': '✂️',
+        'Illegal Parking': '🚗',
+        'Sewer Cleaning': '💩',
+        'Campsite Reporting': '⛺️',
+      }
+    </script>
 </head>
 <body>
 <div class="root">
@@ -118,11 +133,16 @@
         <div class="nav">
             <div class="col">
                 <h1 class="pagehead">PDX Reporter Map</h1>
+                <script>function showLegend() {
+                  const lines = Object.entries(categoryEmoji).map(([k, v]) => `${v}: ${k}`);
+                  const s = lines.join("\n");
+                  alert(s);
+                }</script>
                 <p class="subhead">
                     Supported by <a href="https://bikeloudpdx.org">BikeLoudPDX</a> and <a href="https://webhookdb.com">WebhookDB</a>.
                     File reports at <a href="https://pdxreporter.org/#Login">pdxreporter.org</a>.
                     See <a href="https://github.com/webhookdb/pdxreporter-map">github.com/webhookdb/pdxreporter-map</a>
-                    for source code.
+                    for source code. Tap <a href="#" onclick="showLegend()">here</a> for the map legend.
                 </p>
             </div>
             <div class="row controls align-middle">
@@ -199,19 +219,6 @@
   // someone can just use the /sql query endpoint directly.
   const webhookdbAuthHeader = '4177df9d8944d9054d56b3c0dd9d69afdd948789ff9a10831c3269015f1f80f8';
   const orgKey = 'bikeloudpdx';
-  const categoryEmoji = {
-    'Park Maintenance': '🌲',
-    'Street Cleaning (Days)': '🧹',
-    'Debris in Roadway': '🗑️',
-    'Street Lighting': '💡',
-    'Work Zone Concerns': '👷‍♂️',
-    'Potholes': '🕳️',
-    'Plugged Storm Drain/Inlet': '🌊',
-    'Sidewalk Vegetation': '✂️',
-    'Illegal Parking': '🚗',
-    'Sewer Cleaning': '💩',
-    'Campsite Reporting': '⛺️',
-  }
   const categoryClass = {
     'Campsite Reporting': 'marker-campsite',
   };
