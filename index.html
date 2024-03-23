@@ -103,6 +103,10 @@
             margin-top: 16px;
         }
 
+        .ml {
+            margin-left: 16px;
+        }
+
         label, .label {
             font-size: 16px;
         }
@@ -152,6 +156,19 @@
                 <div class="label">to</div>
                 <input type="date" id="upper" name="upper" class="cform cform-custom-input" aria-label="end date"
                        onchange="handleInputChange();"/>
+            </div>
+            <div class="row controls">
+                <label>
+                    Search titles and comments:
+                    <input
+                        id="search"
+                        name="search"
+                        type="search"
+                        class="cform cform-custom-input ml"
+                        onkeyup="handleSearchKeyUp();"
+                        onblur="handleInputChange();"
+                    />
+                </label>
             </div>
             <div class="row controls">
                 <div class="label">Status:</div>
@@ -233,7 +250,7 @@
 
   let lastQueryAborter = new AbortController();
 
-  async function runQuery({lower, upper, statuses}) {
+  async function runQuery({lower, upper, statuses, search}) {
     if (!(lower && upper && statuses)) {
       console.log('some params were empty')
       return;
@@ -243,6 +260,10 @@
     lastQueryAborter = thisAborter;
     document.querySelector('#progress-bar').classList.remove('d-none');
     const statusCond = statuses === 'all' ? '1 = 1' : "status != 'Closed'"
+    let searchQuery = '';
+    if (search) {
+      searchQuery = `AND (title ILIKE '%${search}%' OR comment ILIKE '%${search}%')`
+    }
     // As explained above, we do not worry on sql injection here- someone can just make calls to /sql using the
     // hard-coded auth token. We depend on the connection string from WebhookDB being readonly,
     // and not having any sensitive data in the database.
@@ -260,6 +281,7 @@
         WHERE ${statusCond}
           AND published < (timezone('America/Los_Angeles', '${upper}'::timestamp) + '1 day'::interval)
           AND published > timezone('America/Los_Angeles', '${lower}'::timestamp)
+          ${searchQuery}
         ORDER BY published DESC
         LIMIT 5000`;
     const resp = await fetch(
@@ -315,11 +337,20 @@
     const lower = document.querySelector('#lower').value;
     const upper = document.querySelector('#upper').value;
     const statuses = document.querySelector('input[name="status"]:checked').value;
-    return {lower, upper, statuses};
+    const search = document.querySelector('#search').value;
+    return {lower, upper, statuses, search};
   }
 
   function handleInputChange() {
     runQuery(getQueryState());
+  }
+
+  function handleSearchKeyUp() {
+    const e = event;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleInputChange();
+    }
   }
 
   runQuery(getQueryState())
