@@ -258,8 +258,8 @@
                comment
         FROM pdxreporterrss_view
         WHERE ${statusCond}
-          AND published < ('${upper}'::date + '1 day'::interval)
-          AND published > '${lower}'::date
+          AND published < (timezone('America/Los_Angeles', '${upper}'::timestamp) + '1 day'::interval)
+          AND published > timezone('America/Los_Angeles', '${lower}'::timestamp)
         ORDER BY published DESC
         LIMIT 5000`;
     const resp = await fetch(
@@ -277,7 +277,7 @@
       return;
     }
     currentMarkers.forEach((m) => m.remove());
-    let earliestRow = null;
+    let earliestRow, latestRow;
     body.rows.forEach((row) => {
       // Will give an object with keys like: title, published, geo_lat, geo_lng, status, address, comment
       // If the query changes the selected column names, we need to change this.
@@ -297,11 +297,12 @@
           .addTo(map)
       );
       earliestRow = rowObj;
+      latestRow = latestRow || rowObj;
     });
     document.querySelector('#progress-bar').classList.add('d-none');
     let stats;
     if (earliestRow) {
-      stats = `Showing last ${body.rows.length} reports, earliest at ${earliestRow.published_str}.`
+      stats = `Showing last ${body.rows.length} reports between ${earliestRow.published_str} and ${latestRow.published_str}.`
     } else {
       stats = "No events match that query."
     }
