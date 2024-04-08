@@ -32,22 +32,6 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        .marker {
-            font-size: 14px;
-            background-color: rgba(255, 255, 255, 50%);
-            border-radius: 50%;
-            padding: 2px;
-            border: rgba(0, 0, 0, 30%) 1px solid;
-            cursor: pointer;
-        }
-
-        /*noinspection CssUnusedSymbol*/
-        .marker-campsite {
-            font-size: 10px;
-            opacity: 50% !important;
-        }
-
-        /*noinspection CssUnusedSymbol*/
         .mapboxgl-popup-content {
             border-radius: 6px;
         }
@@ -117,17 +101,26 @@
     </style>
     <script>
       const categoryEmoji = {
-        'Park Maintenance': '🌲',
-        'Street Cleaning (Days)': '🧹',
-        'Debris in Roadway': '🗑️',
-        'Street Lighting': '💡',
-        'Work Zone Concerns': '👷‍♂️',
-        'Potholes': '🕳️',
-        'Plugged Storm Drain/Inlet': '🌊',
-        'Sidewalk Vegetation': '✂️',
-        'Illegal Parking': '🚗',
-        'Sewer Cleaning': '💩',
-        'Campsite Reporting': '⛺️',
+        'Park Maintenance': ['tree', '🌲', '#1c9100'],
+        'Street Cleaning (Days)': ['street_cleaning', '🧹', '#c4774d'],
+        'Debris in Roadway': ['debris', '🗑️', '#777777'],
+        'Street Lighting': ['street_lighting', '💡', '#f0dda3'],
+        'Work Zone Concerns': ['work_zone', '👷‍', '#ffde00'],
+        'Potholes': ['pothole', '🕳️', '#333333'],
+        'Plugged Storm Drain/Inlet': ['plugged_drain', '🌊', '#0096ff'],
+        'Sidewalk Vegetation': ['sidewalk_veg', '✂️', '#59f81c'],
+        'Illegal Parking': ['parking', '🚗', '#53a7be'],
+        'Sewer Cleaning': ['sewer', '💩', '#6b3d24'],
+        'Campsite Reporting': ['campsite', '⛺️', '#ff6b0f'],
+        'Other': ['other', '❓', '#ff0000'],
+      }
+
+      function getCategoryInfo(key) {
+        let arr = categoryEmoji[key];
+        if (!arr) {
+          arr = categoryEmoji['Other'];
+        }
+        return {symbol_name: arr[0], emoji: arr[1], color: arr[2]};
       }
     </script>
 </head>
@@ -138,7 +131,22 @@
             <div class="col">
                 <h1 class="pagehead">PDX Reporter Map</h1>
                 <script>function showLegend() {
-                  const lines = Object.entries(categoryEmoji).map(([k, v]) => `${v}: ${k}`);
+                  let lines = [
+                    `Tap/click and drag to pan the map.`,
+                    'Pinch or double-click to zoom in/out, or use controls on the bottom right.',
+                    'Tap/click on a cluster of markers to zoom into and expand it.',
+                    'Tap/click on a marker to view more information about the ticket.',
+                    '',
+                    'Use the inputs to view tickets from a particular time period, and/or search for specific words.',
+                    '',
+                    'Issues reported through https://pdxreporter.org show up on the map within a few hours.',
+                    '',
+                    'Map legend:',
+                    '',
+                  ];
+                  lines = lines.concat(Object.keys(categoryEmoji).map((k) => `  ${k}: ${getCategoryInfo(k).emoji}`));
+                  lines.push('');
+                  lines.push('Email hello@webhookdb.com to report problems with this application.');
                   const s = lines.join("\n");
                   alert(s);
                 }</script>
@@ -146,7 +154,8 @@
                     Supported by <a href="https://bikeloudpdx.org">BikeLoudPDX</a> and <a href="https://webhookdb.com">WebhookDB</a>.
                     File reports at <a href="https://pdxreporter.org/#Login">pdxreporter.org</a>.
                     See <a href="https://github.com/webhookdb/pdxreporter-map">github.com/webhookdb/pdxreporter-map</a>
-                    for source code. Tap <a href="#" onclick="showLegend()">here</a> for the map legend.
+                    for source code. Tap <a href="#" onclick="showLegend()">here</a> for the instructions and map
+                    legend.
                 </p>
             </div>
             <div class="row controls align-middle">
@@ -223,6 +232,69 @@
   })()
 </script>
 <script>
+  function initializeMap(map) {
+    map.addSource('markers', {
+      type: 'geojson',
+      cluster: true,
+      clusterMaxZoom: 13, // Max zoom to cluster points on
+      clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+      data: {
+        "type": "FeatureCollection",
+        "features": []
+      }
+    });
+    // Color the clusters. It would be cool if we could make higher-issue clusters look different.
+    // This would require relative values to use with the step function (since there is no single number
+    // to consider as 'many issues' given we can request a day or a year),
+    // but I think we can only set the layer paint properties once.
+    map.addLayer({
+      id: 'clusters',
+      type: 'circle',
+      source: 'markers',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#51bbd6',
+        'circle-radius': 15,
+      }
+    });
+
+    map.addLayer({
+      id: 'cluster-count',
+      type: 'symbol',
+      source: 'markers',
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 12
+      }
+    });
+
+    map.addLayer({
+      id: 'unclustered-point-circle',
+      source: 'markers',
+      type: 'circle',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-radius': 10,
+        'circle-stroke-color': {"type": "identity", "property": "color"},
+        'circle-stroke-width': 1,
+      }
+    });
+    map.addLayer({
+      id: 'unclustered-point',
+      source: 'markers',
+      type: 'symbol',
+      filter: ['!', ['has', 'point_count']],
+      'layout': {
+        'icon-image': '{symbol_name}',
+        'icon-size': 0.1,
+      },
+    });
+  }
+</script>
+<script>
   // See https://docs.webhookdb.com/guides/render-map/ to create your own organization for your own data.
   // NOTE: This is a live token over live data that can be used to access certain API endpoints.
   // It is created using something like:
@@ -236,14 +308,11 @@
   // someone can just use the /sql query endpoint directly.
   const webhookdbAuthHeader = '4177df9d8944d9054d56b3c0dd9d69afdd948789ff9a10831c3269015f1f80f8';
   const orgKey = 'bikeloudpdx';
-  const categoryClass = {
-    'Campsite Reporting': 'marker-campsite',
-  };
   mapboxgl.accessToken = 'pk.eyJ1Ijoicm9ibGl0aGljIiwiYSI6ImNsczg3ajY1dzF5bnkya24yeWp5ZHl6ajEifQ.k-7Aez1RUjOQEL1kEQDF1Q';
   const map = new mapboxgl.Map({
     container: 'map', // container ID
     center: [-122.676483, 45.523064], // starting position [lng, lat]
-    zoom: 12 // starting zoom
+    zoom: 12, // starting zoom
   });
   map.addControl(new mapboxgl.NavigationControl({showCompass: false}), 'bottom-right');
   map.addControl(new mapboxgl.GeolocateControl(), 'bottom-right');
@@ -281,9 +350,8 @@
         WHERE ${statusCond}
           AND published < (timezone('America/Los_Angeles', '${upper}'::timestamp) + '1 day'::interval)
           AND published > timezone('America/Los_Angeles', '${lower}'::timestamp)
-          ${searchQuery}
-        ORDER BY published DESC
-        LIMIT 5000`;
+            ${searchQuery}
+        ORDER BY published DESC`;
     const resp = await fetch(
       `https://api.webhookdb.com/v1/db/run_sql?` +
       new URLSearchParams({query_base64: btoa(query), org_identifier: orgKey}),
@@ -298,7 +366,7 @@
     if (thisAborter.signal.aborted) {
       return;
     }
-    currentMarkers.forEach((m) => m.remove());
+    const markerGeojsonFeatures = []
     let earliestRow, latestRow;
     body.rows.forEach((row) => {
       // Will give an object with keys like: title, published, geo_lat, geo_lng, status, address, comment
@@ -307,19 +375,26 @@
       body.headers.forEach((h, i) => {
         rowObj[h] = row[i];
       });
-      const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published_str}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
-      const popup = new mapboxgl.Popup({offset: 12}).setHTML(popupHtml)
-      const el = document.createElement('div');
-      el.classList.add(categoryClass[rowObj.category] || 'marker');
-      el.innerHTML = `${categoryEmoji[rowObj.category] || '❓'}`;
-      currentMarkers.push(
-        new mapboxgl.Marker(el)
-          .setLngLat([rowObj.geo_lng, rowObj.geo_lat])
-          .setPopup(popup)
-          .addTo(map)
-      );
+      const categoryInfo = getCategoryInfo(rowObj.category);
+      rowObj.symbol_name = categoryInfo.symbol_name;
+      rowObj.color = categoryInfo.color;
+      markerGeojsonFeatures.push({
+        "type": "Feature",
+        "properties": rowObj,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            rowObj.geo_lng,
+            rowObj.geo_lat
+          ]
+        }
+      });
       earliestRow = rowObj;
       latestRow = latestRow || rowObj;
+    });
+    map.getSource('markers').setData({
+      "type": "FeatureCollection",
+      "features": markerGeojsonFeatures
     });
     document.querySelector('#progress-bar').classList.add('d-none');
     let stats;
@@ -330,8 +405,6 @@
     }
     document.querySelector("#stats").innerHTML = stats;
   }
-
-  const currentMarkers = [];
 
   function getQueryState() {
     const lower = document.querySelector('#lower').value;
@@ -353,7 +426,96 @@
     }
   }
 
-  runQuery(getQueryState())
+  let mapInitialized = false;
+  map.on('styledata', function () {
+    // Init the map once style data is available, otherwise we error when adding layers.
+    // We only want to init the first time though.
+    if (mapInitialized) {
+      return;
+    }
+    mapInitialized = true;
+
+    function loadImage(name) {
+      map.loadImage(
+        `/images/${name}.png`,
+        (error, image) => {
+          if (error) {
+            throw error;
+          }
+          map.addImage(name, image);
+        });
+    }
+
+    // It's possible images need to be loaded before initializeMap is called,
+    // but I'm not sure. If so, we need to put the calls in promises.
+    // Until proven otherwise, though, I won't worry about it.
+    loadImage('campsite');
+    loadImage('debris');
+    loadImage('other');
+    loadImage('parking');
+    loadImage('plugged_drain');
+    loadImage('pothole');
+    loadImage('sewer');
+    loadImage('sidewalk_veg');
+    loadImage('street_cleaning');
+    loadImage('street_lighting');
+    loadImage('tree');
+    loadImage('work_zone');
+    initializeMap(map);
+    runQuery(getQueryState())
+  });
+
+  map.on('mouseenter', 'unclustered-point-circle', () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', 'unclustered-point-circle', () => {
+    map.getCanvas().style.cursor = '';
+  });
+  map.on('mouseenter', 'clusters', () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', 'clusters', () => {
+    map.getCanvas().style.cursor = '';
+  });
+  map.on('click', 'clusters', (e) => {
+    // Inspect/zoom to a cluster on click
+    const features = map.queryRenderedFeatures(e.point, {layers: ['clusters']});
+    const clusterId = features[0].properties.cluster_id;
+    map.getSource('markers').getClusterExpansionZoom(
+      clusterId,
+      (err, zoom) => {
+        if (err) {
+          return;
+        }
+        map.easeTo({
+          center: features[0].geometry.coordinates,
+          zoom: zoom
+        });
+      }
+    );
+  });
+
+  map.on('click', 'unclustered-point', (e) => {
+    // When a click event occurs on a feature in
+    // the unclustered-point layer, open a popup at
+    // the location of the feature, with
+    // description HTML from its properties.
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    const rowObj = e.features[0].properties;
+    // Ensure that if the map is zoomed out such that
+    // multiple copies of the feature are visible, the
+    // popup appears over the copy being pointed to.
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+      coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
+    map.easeTo({center: coordinates, offset: [0, 150]});
+    const popupHtml = `<h2>${rowObj.title}</h2><p>${rowObj.comment || ''}</p><p>At: ${rowObj.published_str}<br />Status: ${rowObj.status}<br />ID: ${rowObj.entry_id}</p>`
+    new mapboxgl.Popup()
+      .setLngLat(coordinates)
+      .setHTML(popupHtml)
+      .addTo(map);
+  });
+
 </script>
 </body>
 </html>
